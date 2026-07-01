@@ -20,9 +20,13 @@ screen.run(handle_event, update, draw)
 """
 
 import os
+import time
 from datetime import datetime
 import pygame
 import random
+import cv2
+import numpy as np
+from moviepy import VideoFileClip
 
 # 资源目录路径
 IMAGE_PATH = "assets/images/"
@@ -608,11 +612,14 @@ class Screen:
         MyGame(800, 600).run()
     """
 
-    def __init__(self, width, height, title="Pygame Screen", fps=60):
+    def __init__(self, width, height, title="Pygame Screen", fps=60, full=False):
         pygame.init()
         self.width = width
         self.height = height
-        self.win = pygame.display.set_mode((width, height))
+        if full:
+            self.win = pygame.display.set_mode((width, height), flags=pygame.FULLSCREEN)
+        else:
+            self.win = pygame.display.set_mode((width, height))
         pygame.display.set_caption(title)
         self.clock = pygame.time.Clock()
         self.fps = fps
@@ -1295,3 +1302,179 @@ class SceneManager:
         """绘制当前场景（在主循环中调用）"""
         if self._current_scene:
             self._current_scene._do_draw(self.screen)
+
+
+class Video:
+    """视频播放器"""
+
+    def __init__(self, video_path):
+        import cv2
+        import os
+        from moviepy import VideoFileClip
+
+        self.video_path = video_path
+        self.audio_path = video_path + ".mp3"
+        self._audio_loaded = False
+        self._on_stop_callback = None
+
+        # ========== 第一步：先处理音频 ==========
+        if os.path.exists(self.audio_path):
+            self._audio_loaded = True
+            Music.play(self.audio_path)  # 默认只播放一遍
+            Music.pause()
+        else:
+            try:
+                clip = VideoFileClip(video_path)
+                if clip.audio is not None:
+                    clip.audio.write_audiofile(
+                        self.audio_path,
+                        codec='libmp3lame'
+                    )
+                    Music.play(self.audio_path)  # 默认只播放一遍
+                    Music.pause()
+                    self._audio_loaded = True
+                clip.close()
+            except Exception as e:
+                self._audio_loaded = True
+                Utils.log_error(f"音频提取失败: {e}")
+
+        # ========== 第二步：再处理视频 ==========
+        self.cap = cv2.VideoCapture(video_path)
+        if not self.cap.isOpened():
+            raise ValueError(f"无法打开视频文件: {video_path}")
+
+        success, video_image = self.cap.read()
+        if not success:
+            raise ValueError(f"无法读取视频帧: {video_path}")
+
+        self.fps = self.cap.get(cv2.CAP_PROP_FPS)
+        self.width = video_image.shape[1]
+        self.height = video_image.shape[0]
+        self.total_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+        self.surface = pygame.image.frombuffer(
+            video_image.tobytes(),
+            video_image.shape[1::-1],
+            "BGR"
+        )
+
+        self.current_frame = 0
+
+        # 播放控制属性
+        self._playing = False
+        self._paused = False
+
+        # 帧率控制
+        self._accumulated_time = 0.0
+        self._frame_duration = 1.0 / self.fps if self.fps > 0 else 0.016
+
+    def on_stop(self, callback):
+        """
+        设置视频播放结束回调函数
+
+        参数:
+            callback: 播放结束时调用的函数
+        """
+        self._on_stop_callback = callback
+
+    def _next_frame(self):
+        """读取下一帧，返回是否成功"""
+        import cv2
+
+        success, video_image = self.cap.read()
+        if success:
+            self.current_frame += 1
+            self.surface = pygame.image.frombuffer(
+                video_image.tobytes(),
+                video_image.shape[1::-1],
+                "BGR"
+            )
+            return True
+        else:
+            # 视频播放结束
+            self._playing = False
+            # 停止音乐
+            if self._audio_loaded:
+                Music.stop()
+            # 触发回调
+            if self._on_stop_callback:
+                self._on_stop_callback()
+            return False
+
+    def update(self, dt):
+        """
+        更新视频播放
+
+        参数:
+            dt: 帧间隔时间（秒）
+        """
+        if not self._playing or self._paused:
+            return
+
+        # 累积时间
+        self._accumulated_time += dt
+
+        # 判断是否应该播放下一帧
+        while self._accumulated_time >= self._frame_duration:
+            self._accumulated_time -= self._frame_duration
+            self._next_frame()
+
+    def play(self):
+        """开始播放"""
+        if not self._playing:
+            self._playing = True
+            self._paused = False
+            self._accumulated_time = 0.0
+            if self._audio_loaded:
+                Music.resume()
+
+    def stop(self):
+        """停止播放（重置到第一帧）"""
+        import cv2
+
+        self._playing = False
+        self._paused = False
+        self.current_frame = 0
+        self._accumulated_time = 0.0
+        self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
+        # 重新读取第一帧
+        success, video_image = self.cap.read()
+        if success:
+            self.surface = pygame.image.frombuffer(
+                video_image.tobytes(),
+                video_image.shape[1::-1],
+                "BGR"
+            )
+
+        if self._audio_loaded:
+            Music.stop()
+            Music.play(self.audio_path)  # 默认只播放一遍
+            Music.pause()
+
+    def pause(self):
+        """暂停播放"""
+        if self._playing:
+            self._paused = True
+            if self._audio_loaded:
+                Music.pause()
+
+    def resume(self):
+        """恢复播放"""
+        if self._playing and self._paused:
+            self._paused = False
+            self._accumulated_time = 0.0
+            if self._audio_loaded:
+                Music.resume()
+
+    def draw(self, screen, x=0, y=0):
+        """绘制当前帧到屏幕"""
+        if self.surface and self._playing:
+            screen.blit(self.surface, (x, y))
+
+    def close(self):
+        """释放资源"""
+        if self.cap:
+            self.cap.release()
+        if self._audio_loaded:
+            Music.stop()

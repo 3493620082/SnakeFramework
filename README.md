@@ -479,6 +479,30 @@ class MyGame(Screen):
 
 ---
 
+### 9. Video - 视频播放
+
+Video类初始化的时候传入视频文件的路径即可  
+- play()播放视频  
+- stop()结束播放  
+- pause()暂停  
+- resume()继续播放  
+- on_stop()播放结束回调函数：传入一个函数，在视频播放结束后会自动调用这个函数  
+
+```python
+video = Video("assets/video.mp3")
+video.play()
+
+def func():
+    print("视频播放结束了")
+video.on_stop(func)
+
+def update(dt):
+    video.update(dt)
+
+def draw(win):
+    video.draw(win)
+```
+
 ## 🎮 完整游戏示例
 
 ```python
