@@ -1,0 +1,7 @@
+# 清华源
+--index-url https://pypi.tuna.tsinghua.edu.cn/simple
+# 所需库
+pygame-ce == 2.5.7
+opencv-python >= 4.7.0.72
+numpy >= 2.3.5
+moviepy >= 2.2.0
