@@ -649,6 +649,10 @@ class Screen:
     def on_draw(self):
         """子类重写：每帧绘制逻辑"""
 
+    def quit(self):
+        """退出游戏"""
+        self.running = False
+
     def run(self, on_event=None, on_update=None, on_draw=None):
         """启动主循环。
         可传入三个回调函数（函数式），不传则走子类重写（面向对象）。
@@ -723,18 +727,18 @@ class Utils:
         return random.randint(1, 100) <= percent
 
     @staticmethod
-    def hide_mouse(visible):
+    def hide_mouse(visible: bool):
         """
         设置鼠标光标是否可见
 
         参数:
-            visible: True 显示鼠标，False 隐藏鼠标
+            visible: True 隐藏鼠标，False 显示鼠标
 
         用法:
-            Utils.hide_mouse(False)  # 游戏中隐藏鼠标
-            Utils.hide_mouse(True)   # 菜单中显示鼠标
+            Utils.hide_mouse(True)      # 隐藏鼠标
+            Utils.hide_mouse(False)     # 显示鼠标
         """
-        pygame.mouse.set_visible(visible)
+        pygame.mouse.set_visible(not visible)
 
     # ==================== 日志 ====================
 
