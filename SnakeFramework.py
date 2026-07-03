@@ -740,6 +740,29 @@ class Utils:
         """
         pygame.mouse.set_visible(not visible)
 
+    @staticmethod
+    def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
+        """
+        将十六进制颜色字符串转为RGB元组
+        :param hex_color: 颜色字符串，支持 #fff / #ffffff 格式
+        :return: (red, green, blue) 0-255 整数元组
+        """
+        # 去除开头#号
+        hex_str = hex_color.lstrip("#")
+
+        # 处理3位简写 #abc → aabbcc
+        if len(hex_str) == 3:
+            hex_str = "".join(ch * 2 for ch in hex_str)
+        elif len(hex_str) != 6:
+            raise ValueError("十六进制颜色格式错误，请使用 #fff 或 #ffffff")
+
+        # 分段截取红、绿、蓝
+        r = int(hex_str[0:2], 16)
+        g = int(hex_str[2:4], 16)
+        b = int(hex_str[4:6], 16)
+
+        return (r, g, b)
+
     # ==================== 日志 ====================
 
     LOG_FILE = "console.log"
