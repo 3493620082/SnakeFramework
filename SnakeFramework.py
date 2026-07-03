@@ -98,6 +98,10 @@ class Input:
         elif event.type == pygame.KEYUP:
             cls._keys_held.discard(event.key)
             cls._keys_released.add(event.key)
+# 将 pygame 所有 K_* 键码常量映射为 Input 类属性
+for _k in dir(pygame):
+    if _k.startswith("K_"):
+        setattr(Input, _k, getattr(pygame, _k))
 
 
 class Music:
